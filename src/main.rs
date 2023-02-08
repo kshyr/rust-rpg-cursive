@@ -1,10 +1,10 @@
 use cursive::theme::Style;
-use cursive::traits::*;
 use cursive::views::{
     Button, Dialog, EditView, LinearLayout, ListView, MenuPopup, Menubar, Panel, SliderView,
     TextView, ViewRef,
 };
 use cursive::{align, event::Key, Cursive, CursiveExt};
+use cursive::{direction, traits::*};
 use rand::Rng;
 
 struct PlayerLoc {
@@ -121,63 +121,10 @@ fn draw_map(s: &mut Cursive, height: i32, width: i32) {
     let mut player_y = s.user_data::<UserData>().unwrap().player_loc.y;
     s.pop_layer();
     s.add_layer(TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"));
-    s.add_global_callback('w', move |s| {
-        s.with_user_data(|data: &mut UserData| {
-            if data.player_loc.y > 0 {
-                data.player_loc.y -= 1
-            };
-        });
-        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
-        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
-        s.find_name::<TextView>("map")
-            .unwrap()
-            .set_content(construct_map(height, width, player_x, player_y));
-        s.find_name::<TextView>("map")
-            .unwrap()
-            .set_style(cursive::theme::Effect::Bold);
-    });
-    s.add_global_callback('a', move |s| {
-        s.with_user_data(|data: &mut UserData| {
-            if data.player_loc.x > 0 {
-                data.player_loc.x -= 1
-            }
-        });
-        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
-        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
-        s.pop_layer();
-        s.add_layer(
-            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
-        );
-        s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
-    });
-    s.add_global_callback('s', move |s| {
-        s.with_user_data(|data: &mut UserData| {
-            if data.player_loc.y < height - 1 {
-                data.player_loc.y += 1
-            };
-        });
-        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
-        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
-        s.pop_layer();
-        s.add_layer(
-            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
-        );
-        s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
-    });
-    s.add_global_callback('d', move |s| {
-        s.with_user_data(|data: &mut UserData| {
-            if data.player_loc.x < width - 1 {
-                data.player_loc.x += 1
-            };
-        });
-        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
-        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
-        s.pop_layer();
-        s.add_layer(
-            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
-        );
-        s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
-    });
+    s.add_global_callback('w', move |s| move_player(s, height, width, "north"));
+    s.add_global_callback('a', move |s| move_player(s, height, width, "west"));
+    s.add_global_callback('s', move |s| move_player(s, height, width, "south"));
+    s.add_global_callback('d', move |s| move_player(s, height, width, "east"));
 }
 
 fn construct_map(height: i32, width: i32, player_x: i32, player_y: i32) -> String {
@@ -194,4 +141,35 @@ fn construct_map(height: i32, width: i32, player_x: i32, player_y: i32) -> Strin
         map.push_str("\n");
     }
     map
+}
+
+fn move_player(s: &mut Cursive, height: i32, width: i32, direction: &str) {
+    match direction {
+        "north" => {
+            if s.user_data::<UserData>().unwrap().player_loc.y > 0 {
+                s.user_data::<UserData>().unwrap().player_loc.y -= 1
+            };
+        }
+        "south" => {
+            if s.user_data::<UserData>().unwrap().player_loc.y < height - 1 {
+                s.user_data::<UserData>().unwrap().player_loc.y += 1
+            };
+        }
+        "east" => {
+            if s.user_data::<UserData>().unwrap().player_loc.x < width - 1 {
+                s.user_data::<UserData>().unwrap().player_loc.x += 1
+            };
+        }
+        "west" => {
+            if s.user_data::<UserData>().unwrap().player_loc.x > 0 {
+                s.user_data::<UserData>().unwrap().player_loc.x -= 1
+            };
+        }
+        _ => {}
+    }
+    let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+    let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
+    s.find_name::<TextView>("map")
+        .unwrap()
+        .set_content(construct_map(height, width, player_x, player_y));
 }
