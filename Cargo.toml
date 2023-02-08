@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
+rand = "0.8.4"
 
 [dependencies.cursive]
 version = "0.20.0"
@@ -14,7 +14,7 @@ default-features = false
 features = ["pancurses-backend", "toml"]
 
 # [dependencies.pdcurses-sys]
-# version = "0.7.0"
+# version = "0.7.1"
 # features = ["win32"]
 
 # ^ Uncomment when building for Windows
