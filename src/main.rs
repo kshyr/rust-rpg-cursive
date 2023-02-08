@@ -7,6 +7,16 @@ use cursive::views::{
 use cursive::{align, event::Key, Cursive, CursiveExt};
 use rand::Rng;
 
+struct PlayerLoc {
+    x: i32,
+    y: i32,
+}
+
+struct UserData {
+    player_loc: PlayerLoc,
+    //    map: Vec<Vec<String>>,
+}
+
 fn main() {
     let mut c = cursive::default();
 
@@ -63,6 +73,10 @@ fn main() {
 
     runner.add_global_callback(Key::Esc, |s| s.select_menubar());
 
+    runner.set_user_data(UserData {
+        player_loc: PlayerLoc { x: 0, y: 0 },
+    });
+
     while runner.is_running() {
         runner.refresh();
 
@@ -103,20 +117,78 @@ fn new_game(s: &mut Cursive) {
 }
 
 fn draw_map(s: &mut Cursive, height: i32, width: i32) {
+    let mut player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+    let mut player_y = s.user_data::<UserData>().unwrap().player_loc.y;
     s.pop_layer();
-    s.add_layer(Dialog::info(construct_map(height, width)));
-    s.add_global_callback('f', move |s| {
+    s.add_layer(TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"));
+    s.add_global_callback('w', move |s| {
+        s.with_user_data(|data: &mut UserData| {
+            if data.player_loc.y > 0 {
+                data.player_loc.y -= 1
+            };
+        });
+        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
+        s.find_name::<TextView>("map")
+            .unwrap()
+            .set_content(construct_map(height, width, player_x, player_y));
+        s.find_name::<TextView>("map")
+            .unwrap()
+            .set_style(cursive::theme::Effect::Bold);
+    });
+    s.add_global_callback('a', move |s| {
+        s.with_user_data(|data: &mut UserData| {
+            if data.player_loc.x > 0 {
+                data.player_loc.x -= 1
+            }
+        });
+        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
         s.pop_layer();
-        s.add_layer(Dialog::info(construct_map(height, width)));
+        s.add_layer(
+            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
+        );
         s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
-    })
+    });
+    s.add_global_callback('s', move |s| {
+        s.with_user_data(|data: &mut UserData| {
+            if data.player_loc.y < height - 1 {
+                data.player_loc.y += 1
+            };
+        });
+        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
+        s.pop_layer();
+        s.add_layer(
+            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
+        );
+        s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
+    });
+    s.add_global_callback('d', move |s| {
+        s.with_user_data(|data: &mut UserData| {
+            if data.player_loc.x < width - 1 {
+                data.player_loc.x += 1
+            };
+        });
+        let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
+        let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
+        s.pop_layer();
+        s.add_layer(
+            TextView::new(construct_map(height, width, player_x, player_y)).with_name("map"),
+        );
+        s.cb_sink().send(Box::new(Cursive::noop)).unwrap();
+    });
 }
 
-fn construct_map(height: i32, width: i32) -> String {
+fn construct_map(height: i32, width: i32, player_x: i32, player_y: i32) -> String {
     let mut map = String::new();
-    for _ in 0..height {
-        for _ in 0..width {
-            let x: &str = if rand::random() { "*" } else { "_" };
+    for i in 0..height {
+        for j in 0..width * 2 {
+            let x: &str = if i == player_y && j == player_x * 2 {
+                "*"
+            } else {
+                " "
+            };
             map.push_str(x);
         }
         map.push_str("\n");
