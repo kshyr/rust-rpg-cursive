@@ -1,4 +1,4 @@
-use cursive::theme::Style;
+use cursive::theme::{Color, ColorStyle, Style};
 use cursive::view::Margins;
 use cursive::views::{
     Button, Dialog, EditView, LinearLayout, ListView, MenuPopup, Menubar, Panel, SelectView,
@@ -14,9 +14,15 @@ struct PlayerLoc {
     floor: i32,
 }
 
+#[derive(Clone, Copy)]
+struct Floor {
+    number: i32,
+    tiles: [[char; 24 * 2 + 1]; 24],
+}
+
 #[derive(Clone)]
 struct GameMap {
-    tiles: [[char; 24 * 2 + 1]; 24],
+    floors: [Floor; 14],
 }
 
 struct UserData {
@@ -88,7 +94,10 @@ fn main() {
             floor: 9,
         },
         map: GameMap {
-            tiles: [[' '; 24 * 2 + 1]; 24],
+            floors: [Floor {
+                tiles: [['.'; 24 * 2 + 1]; 24],
+                number: 9,
+            }; 14],
         },
     });
 
@@ -124,9 +133,16 @@ fn draw_map(s: &mut Cursive) {
             )),
     );
 
+    s.find_name::<TextView>("map")
+        .unwrap()
+        .set_content(construct_map(s, height, width, player_x, player_y));
+
     // s.find_name::<TextView>("map")
     //     .unwrap()
-    //     .set_content(construct_map(s, height, width, player_x, player_y));
+    //     .set_style(ColorStyle::new(
+    //         Color::Rgb(255, 255, 255),
+    //         Color::Rgb(0, 0, 255),
+    //     ));
 
     s.add_global_callback('w', move |s| move_player(s, height, width, "north"));
     s.add_global_callback('a', move |s| move_player(s, height, width, "west"));
@@ -138,12 +154,13 @@ fn construct_map(s: &mut Cursive, height: i32, width: i32, player_x: i32, player
     for i in 0..height {
         for j in 0..width * 2 + 1 {
             let x: char;
-            let current_tile = s.user_data::<UserData>().unwrap().map.tiles[i as usize][j as usize];
+            let current_tile =
+                s.user_data::<UserData>().unwrap().map.floors[0].tiles[i as usize][j as usize];
             let y_axis_stairs_up_placement = 11..13;
             let y_axis_stairs_down_placement = 14..16;
             let x_axis_stairs_placement = 8..10;
 
-            if i == player_y && j == player_x * 2 {
+            if i == player_y && j == player_x * 2 && current_tile != 'M' {
                 x = '*'; // player
             } else if y_axis_stairs_down_placement.contains(&i)
                 && (x_axis_stairs_placement.contains(&j))
@@ -175,16 +192,18 @@ fn construct_map(s: &mut Cursive, height: i32, width: i32, player_x: i32, player
                         || y_axis_stairs_up_placement.contains(&(i + 1))))
             {
                 x = '#'; // walls
-            } else if current_tile == ' ' && current_tile == '*' {
+            } else if (i >= 4 && i <= height - 5 && (j >= 8 && j <= width * 2 - 8)) {
+                x = ';';
+            } else if current_tile != '.' && current_tile != '*' {
                 x = current_tile;
             } else {
-                x = ' '; // empty space
+                x = '.'; // empty space
             }
 
-            s.user_data::<UserData>().unwrap().map.tiles[i as usize][j as usize] = x;
+            s.user_data::<UserData>().unwrap().map.floors[0].tiles[i as usize][j as usize] = x;
         }
     }
-    let map = s.user_data::<UserData>().unwrap().map.tiles;
+    let map = s.user_data::<UserData>().unwrap().map.floors[0].tiles;
     let mut map_string = String::new();
     for rows in map.iter() {
         for cols in rows.iter() {
@@ -199,7 +218,7 @@ fn construct_map(s: &mut Cursive, height: i32, width: i32, player_x: i32, player
 fn move_player(s: &mut Cursive, height: i32, width: i32, direction: &str) {
     let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
     let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
-    let tiles = s.user_data::<UserData>().unwrap().map.tiles;
+    let tiles = s.user_data::<UserData>().unwrap().map.floors[0].tiles;
     match direction {
         "north" => {
             if player_y > 0 && tiles[player_y as usize - 1][player_x as usize * 2] != '#' {
@@ -225,6 +244,7 @@ fn move_player(s: &mut Cursive, height: i32, width: i32, direction: &str) {
     }
     let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
     let player_y = s.user_data::<UserData>().unwrap().player_loc.y;
+    let floor = s.user_data::<UserData>().unwrap().player_loc.floor;
 
     let y_axis_stairs_up_placement = 11..13;
     let y_axis_stairs_down_placement = 14..16;
@@ -233,23 +253,23 @@ fn move_player(s: &mut Cursive, height: i32, width: i32, direction: &str) {
     if player_x == 5 && y_axis_stairs_up_placement.contains(&player_y) {
         s.user_data::<UserData>().unwrap().player_loc.x = 3;
         s.user_data::<UserData>().unwrap().player_loc.y = 14;
+        floor_gen(s, floor);
         s.user_data::<UserData>().unwrap().player_loc.floor += 1;
-        floor_gen(s);
     } else if player_x == 5 && y_axis_stairs_down_placement.contains(&player_y) {
         s.user_data::<UserData>().unwrap().player_loc.x = 3;
         s.user_data::<UserData>().unwrap().player_loc.y = 11;
+        floor_gen(s, floor);
         s.user_data::<UserData>().unwrap().player_loc.floor -= 1;
-        floor_gen(s);
     } else if x_axis_stairs_placement.contains(&player_x) && player_y == 11 {
         s.user_data::<UserData>().unwrap().player_loc.x = 3;
         s.user_data::<UserData>().unwrap().player_loc.y = 14;
+        floor_gen(s, floor);
         s.user_data::<UserData>().unwrap().player_loc.floor += 1;
-        floor_gen(s);
     } else if x_axis_stairs_placement.contains(&player_x) && player_y == 14 {
         s.user_data::<UserData>().unwrap().player_loc.x = 3;
         s.user_data::<UserData>().unwrap().player_loc.y = 11;
+        floor_gen(s, floor);
         s.user_data::<UserData>().unwrap().player_loc.floor -= 1;
-        floor_gen(s);
     }
 
     let player_x = s.user_data::<UserData>().unwrap().player_loc.x;
@@ -266,16 +286,27 @@ fn move_player(s: &mut Cursive, height: i32, width: i32, direction: &str) {
         ));
 }
 
-fn floor_gen(s: &mut Cursive) {
+fn floor_gen(s: &mut Cursive, prev_floor: i32) {
     let rng = rand::thread_rng().gen_range(0..100);
-    let tiles = s.user_data::<UserData>().unwrap().map.tiles;
+    let curr_floor = s.user_data::<UserData>().unwrap().player_loc.floor;
+    let new_floor = Floor {
+        number: curr_floor,
+        tiles: s.user_data::<UserData>().unwrap().map.floors[0]
+            .tiles
+            .clone(),
+    };
 
-    if rng < 50 {
+    let tiles = new_floor.tiles.clone();
+    if rng < 90 {
         let mut rng = rand::thread_rng();
-        let x = rng.gen_range(0..tiles.len());
-        let y = rng.gen_range(0..tiles[x].len());
-        if tiles[x][y] == ' ' {
-            s.user_data::<UserData>().unwrap().map.tiles[x][y] = 'M';
+        for _ in 0..rng.gen_range(0..10) {
+            let x = rng.gen_range(0..tiles.len());
+            let y = rng.gen_range(0..tiles[x].len());
+            if tiles[x][y] == '.' && y % 2 == 0 {
+                s.user_data::<UserData>().unwrap().map.floors[0].tiles[x][y] = 'M';
+            }
         }
     }
+
+    s.user_data::<UserData>().unwrap().map.floors[curr_floor as usize] = new_floor;
 }
